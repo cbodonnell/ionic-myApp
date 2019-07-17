@@ -1,6 +1,6 @@
 import { Component, OnInit } from '@angular/core';
-import { Map } from 'mapbox-gl';
-import { MapboxService } from '../services/mapbox.service';
+import * as mapboxgl from 'mapbox-gl';
+import { environment } from '../../environments/environment';
 import { Geolocation } from '@ionic-native/geolocation/ngx';
 
 @Component({
@@ -10,22 +10,20 @@ import { Geolocation } from '@ionic-native/geolocation/ngx';
 })
 export class Tab3Page implements OnInit {
 
-  resizeMap = true;
-
-  map: Map;
+  map: mapboxgl.Map;
   style = 'mapbox://styles/mapbox/streets-v11';
   // lat = 13.0569951;
   // lng = 80.20929129999999;
   zoom = 9;
 
-  constructor(private mapboxService: MapboxService, private geolocation: Geolocation) {
-    this.mapboxService = mapboxService;
+  constructor(private geolocation: Geolocation) {
     this.geolocation = geolocation;
+    mapboxgl.accessToken = environment.mapbox.accessToken;
   }
 
   ngOnInit() {
-    
-    this.map = new Map({
+    // TODO: Don't load map until getLocation is complete
+    this.map = new mapboxgl.Map({
       container: 'map', // container id
       style: this.style, // stylesheet location
       center: [0, 0], // starting position [lng, lat]
@@ -38,55 +36,17 @@ export class Tab3Page implements OnInit {
       this.map.resize();
      }, 0);
 
-    this.map.on('load', (event) => {
-      
-
-      // this.map.addSource('customMarker', {
-      //   type: 'geojson',
-      //   data: {
-      //     type: 'FeatureCollection',
-      //     features: []
-      //   }
-      // }
-    });
-
-    //   const markers = this.mapboxService.getMarkers();
-
-    //   const data = {
-    //     type: 'FeatureCollection',
-    //     features: markers
-    //   };
-
-    //   this.map.getSource('customMarker').setData(data);
-
-    //   this.map.addLayer({
-    //     id: 'customMarketid',
-    //     source: 'customMarker',
-    //     type: 'symbol',
-    //     layout: {
-    //       'text-field': '{message}',
-    //       'text-size': 24,
-    //       'text-transform': 'uppercase',
-    //       'icon-image': 'marker-15',
-    //       'text-offset': [0, 1.5]
-    //     },
-    //     paint: {
-    //       'text-color': '#f16624',
-    //       'text-halo-color': '#fff',
-    //       'text-halo-width': 2
-    //     }
-    //   });
+    // this.map.on('load', (event) => {
     // });
   }
 
-  getLocation () {
+  // TODO: Delete this and just use calls to geoloaction.getCurrentPosition()?
+  getLocation() {
     this.geolocation.getCurrentPosition().then((resp) => {
-      const coords = [resp.coords.longitude, resp.coords.latitude]
+      const coords = [resp.coords.longitude, resp.coords.latitude];
       this.map.setCenter(coords);
      }).catch((error) => {
       console.log('Error getting location', error);
      });
   }
-
-
 }

@@ -29,6 +29,7 @@
     "cordova-ios": "5.0.1",
     "cordova-plugin-geolocation": "^4.0.2",
     "core-js": "^2.5.4",
+    "esm": "^3.2.25",
     "mapbox-gl": "^1.1.0",
     "rxjs": "~6.5.1",
     "tslib": "^1.9.0",

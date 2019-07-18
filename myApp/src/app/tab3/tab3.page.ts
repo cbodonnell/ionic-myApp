@@ -15,7 +15,7 @@ export class Tab3Page implements OnInit {
   style = 'mapbox://styles/mapbox/streets-v11';
   zoom = 12;
   loadingMap = true;
-  location = [0, 0];
+  location: GeoJson = new GeoJson([0, 0]);
 
   constructor(private geolocation: Geolocation) {
     this.geolocation = geolocation;
@@ -29,25 +29,25 @@ export class Tab3Page implements OnInit {
   updateLocation() {
     this.geolocation.getCurrentPosition().then((resp) => {
       const coords = [resp.coords.longitude, resp.coords.latitude];
-      this.location = coords;
+      this.location.geometry.coordinates = coords;
     }).catch((error) => {
       console.log('Error getting location', error);
     });
   }
 
-  centerMap(coords) {
-    this.map.setCenter(coords);
+  centerMap(location: GeoJson) {
+    this.easeTo(location);
   }
 
   initMap() {
     this.geolocation.getCurrentPosition().then((resp) => {
       const coords = [resp.coords.longitude, resp.coords.latitude];
-      this.location = coords;
+      this.location.geometry.coordinates = coords;
       this.map = new mapboxgl.Map({
-        container: 'map', // container id
-        style: this.style, // stylesheet location
-        center: coords, // starting position [lng, lat]
-        zoom: this.zoom // starting zoom
+        container: 'map',
+        style: this.style,
+        center: coords,
+        zoom: this.zoom
       });
       this.loadingMap = false;
       this.buildMap();
@@ -59,9 +59,9 @@ export class Tab3Page implements OnInit {
   buildMap() {
     this.map.addControl(new mapboxgl.NavigationControl());
     this.map.on('click', (event) => {
-      const coordinates = [event.lngLat.lng, event.lngLat.lat]
+      const coordinates = [event.lngLat.lng, event.lngLat.lat];
       console.log('Click at: ', coordinates);
-    })
+    });
     this.map.on('load', (event) => {
       console.log('map loaded!');
       const size = 125;
@@ -71,29 +71,29 @@ export class Tab3Page implements OnInit {
         height: size,
         data: new Uint8Array(size * size * 4),
         map: this.map,
-        
-        onAdd: function() {
-          var canvas = document.createElement('canvas');
+
+        onAdd() {
+          const canvas = document.createElement('canvas');
           canvas.width = this.width;
           canvas.height = this.height;
           this.context = canvas.getContext('2d');
         },
-        
-        render: function() {
-          var duration = 1000;
-          var t = (performance.now() % duration) / duration;
-          
-          var radius = size / 2 * 0.3;
-          var outerRadius = size / 2 * 0.7 * t + radius;
-          var context = this.context;
-          
+
+        render() {
+          const duration = 1000;
+          const t = (performance.now() % duration) / duration;
+
+          const radius = size / 2 * 0.3;
+          const outerRadius = size / 2 * 0.7 * t + radius;
+          const context = this.context;
+
           // draw outer circle
           context.clearRect(0, 0, this.width, this.height);
           context.beginPath();
           context.arc(this.width / 2, this.height / 2, outerRadius, 0, Math.PI * 2);
           context.fillStyle = 'rgba(0, 100, 255,' + (0.6 - t) + ')';
           context.fill();
-          
+
           // draw inner circle
           context.beginPath();
           context.arc(this.width / 2, this.height / 2, radius, 0, Math.PI * 2);
@@ -102,34 +102,21 @@ export class Tab3Page implements OnInit {
           context.lineWidth = 2 + 4 * (1 - t);
           context.fill();
           context.stroke();
-          
+
           // update this image's data with data from the canvas
           this.data = context.getImageData(0, 0, this.width, this.height).data;
-          
+
           // keep the map repainting
           this.map.triggerRepaint();
-          
+
           // return `true` to let the map know that the image was updated
           return true;
         }
       };
 
-      console.log(pulsingDot);
-
-      
-
       this.map.addSource('location', {
         type: 'geojson',
-        data: {
-            "type": "FeatureCollection",
-            "features": [{
-              "type": "Feature",
-                "geometry": {
-                  "type": "Point",
-                  "coordinates": this.location
-              }
-            }]
-          }
+        data: new FeatureCollection([this.location])
       });
 
       this.map.addImage('pulsing-dot', pulsingDot, { pixelRatio: 2 });
@@ -138,43 +125,23 @@ export class Tab3Page implements OnInit {
         id: 'location',
         source: 'location',
         type: 'symbol',
-        "layout": {
-          "icon-image": "pulsing-dot"
+        layout: {
+          'icon-image': 'pulsing-dot'
         }
       });
+    });
+  }
 
-      console.log(this.map);
-
-
-      
-  
-      // this.map.addLayer({
-      //   "id": "points",
-      //   "type": "symbol",
-      //   "source": {
-      //     "type": "geojson",
-      //     "data": {
-      //       "type": "FeatureCollection",
-      //       "features": [{
-      //         "type": "Feature",
-      //         "geometry": {
-      //           "type": "Point",
-      //           "coordinates": [0, 0]
-      //         }
-      //       }]
-      //     }
-      //   },
-      //   "layout": {
-      //   "icon-image": "pulsing-dot"
-      //   }
-      // });
+  easeTo(data: GeoJson) {
+    this.map.easeTo({
+      center: data.geometry.coordinates
     });
   }
 
   flyTo(data: GeoJson) {
     this.map.flyTo({
       center: data.geometry.coordinates
-    })
+    });
   }
 }
 

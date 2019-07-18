@@ -1,16 +1,24 @@
 <ion-header>
   <ion-toolbar>
     <ion-title>
-      Tab Three
+      Map
     </ion-title>
   </ion-toolbar>
 </ion-header>
 
 <ion-content>
+  <ion-fab vertical="center" horizontal="center">
+    <ion-spinner name="crescent" 
+    *ngIf="loadingMap"
+    vertical="center" 
+    horizontal="center"
+    color="primary"
+    ></ion-spinner>
+  </ion-fab>
   <div class="map" id="map"></div>
   <ion-fab vertical="top" horizontal="start" slot="fixed">
-    <ion-fab-button (click)="centerMap()">
-      <ion-icon name="locate"></ion-icon>
+    <ion-fab-button (click)="centerMap(location)">
+      <ion-icon name="compass"></ion-icon>
     </ion-fab-button>
   </ion-fab>
 </ion-content>

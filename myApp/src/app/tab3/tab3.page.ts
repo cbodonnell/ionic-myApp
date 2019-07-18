@@ -9,6 +9,7 @@ import { GeoJson, FeatureCollection } from '../models/map';
   templateUrl: 'tab3.page.html',
   styleUrls: ['./tab3.page.scss']
 })
+
 export class Tab3Page implements OnInit {
 
   map: mapboxgl.Map;
@@ -16,6 +17,10 @@ export class Tab3Page implements OnInit {
   zoom = 12;
   loadingMap = true;
   location: GeoJson = new GeoJson([0, 0]);
+
+  refreshRate = 1000;
+  refreshInterval = null;
+  isRefreshing = false;
 
   constructor(private geolocation: Geolocation) {
     this.geolocation = geolocation;
@@ -127,6 +132,8 @@ export class Tab3Page implements OnInit {
     this.geolocation.getCurrentPosition().then((resp) => {
       const coords = [resp.coords.longitude, resp.coords.latitude];
       this.location.geometry.coordinates = coords;
+      this.map.getSource('location').setData(new FeatureCollection([this.location]));
+      console.log(coords);
     }).catch((error) => {
       console.log('Error getting location', error);
     });
@@ -134,6 +141,25 @@ export class Tab3Page implements OnInit {
 
   centerMap(location: GeoJson) {
     this.easeTo(location);
+  }
+
+  toggleRefresh() {
+    if (this.isRefreshing) {
+      this.stopRefresh();
+    } else {
+      this.startRefresh();
+    }
+    this.isRefreshing = !this.isRefreshing;
+  }
+
+  startRefresh() {
+    this.refreshInterval = setInterval(() => {
+        this.updateLocation();
+    }, this.refreshRate);
+  }
+
+  stopRefresh() {
+    clearInterval(this.refreshInterval);
   }
 
   // Helpers

@@ -41,7 +41,6 @@ export class Tab3Page implements OnInit {
         center: coords,
         zoom: this.zoom
       });
-      this.loadingMap = false;
       this.buildMap();
     }).catch((error) => {
       console.log('Error getting location', error);
@@ -56,6 +55,7 @@ export class Tab3Page implements OnInit {
     });
     this.map.on('load', (event) => {
       console.log('map loaded!');
+      this.loadingMap = false;
       this.addLocation();
     });
   }

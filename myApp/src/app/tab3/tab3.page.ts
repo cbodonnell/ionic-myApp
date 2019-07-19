@@ -18,6 +18,8 @@ export class Tab3Page implements OnInit {
   loadingMap = true;
   location: GeoJson = new GeoJson([0, 0]);
 
+  isViewLocked = true;
+
   refreshRate = 1000;
   refreshInterval = null;
   isRefreshing = false;
@@ -57,6 +59,10 @@ export class Tab3Page implements OnInit {
       console.log('map loaded!');
       this.loadingMap = false;
       this.addLocation();
+    });
+    this.map.on('dragstart', (event) => {
+      console.log('drag');
+      this.isViewLocked = false;
     });
   }
 
@@ -133,14 +139,21 @@ export class Tab3Page implements OnInit {
       const coords = [resp.coords.longitude, resp.coords.latitude];
       this.location.geometry.coordinates = coords;
       this.map.getSource('location').setData(new FeatureCollection([this.location]));
+      if (this.isViewLocked) {
+        this.jumpTo(this.location);
+      }
       console.log(coords);
     }).catch((error) => {
       console.log('Error getting location', error);
     });
   }
 
-  centerMap(location: GeoJson) {
-    this.easeTo(location);
+  toggleCenterMap() {
+    if (this.map.getCenter().toArray() !== this.location.geometry.coordinates) {
+      this.easeTo(this.location);
+    } else { }
+    this.isViewLocked = !this.isViewLocked;
+    console.log('Map locked: ', this.isViewLocked);
   }
 
   toggleRefresh() {
@@ -156,6 +169,8 @@ export class Tab3Page implements OnInit {
     this.refreshInterval = setInterval(() => {
         this.updateLocation();
     }, this.refreshRate);
+    this.isViewLocked = true;
+    this.easeTo(this.location);
   }
 
   stopRefresh() {
@@ -166,6 +181,12 @@ export class Tab3Page implements OnInit {
 
   easeTo(data: GeoJson) {
     this.map.easeTo({
+      center: data.geometry.coordinates
+    });
+  }
+
+  jumpTo(data: GeoJson) {
+    this.map.jumpTo({
       center: data.geometry.coordinates
     });
   }

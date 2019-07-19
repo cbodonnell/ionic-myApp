@@ -1,2 +1,2 @@
 # ionic-myApp
-Tutorial application using Ionic Framework
+Sandbox application using Ionic Framework

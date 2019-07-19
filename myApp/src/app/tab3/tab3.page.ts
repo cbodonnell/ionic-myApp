@@ -60,8 +60,18 @@ export class Tab3Page implements OnInit {
       this.loadingMap = false;
       this.addLocation();
     });
+
+    // Unlock view when...
     this.map.on('dragstart', (event) => {
       console.log('drag');
+      this.isViewLocked = false;
+    });
+    this.map.on('touchmove', (event) => {
+      console.log('touchmove');
+      this.isViewLocked = false;
+    });
+    this.map.on('wheel', (event) => {
+      console.log('wheel');
       this.isViewLocked = false;
     });
   }

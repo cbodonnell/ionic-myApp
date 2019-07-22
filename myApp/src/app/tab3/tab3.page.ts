@@ -5,7 +5,6 @@ import { Geolocation, Geoposition } from '@ionic-native/geolocation/ngx';
 import { GeoJson, FeatureCollection } from '../models/map';
 import { Observable } from 'rxjs';
 import { filter } from 'rxjs/operators';
-import { Time } from '@angular/common';
 import { until } from 'protractor';
 
 @Component({

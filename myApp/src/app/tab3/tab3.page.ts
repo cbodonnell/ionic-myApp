@@ -1,8 +1,10 @@
 import { Component, OnInit } from '@angular/core';
 import * as mapboxgl from 'mapbox-gl';
 import { environment } from '../../environments/environment';
-import { Geolocation } from '@ionic-native/geolocation/ngx';
+import { Geolocation, Geoposition } from '@ionic-native/geolocation/ngx';
 import { GeoJson, FeatureCollection } from '../models/map';
+import { Observable } from 'rxjs';
+import { filter } from 'rxjs/operators';
 
 @Component({
   selector: 'app-tab3',
@@ -12,17 +14,18 @@ import { GeoJson, FeatureCollection } from '../models/map';
 
 export class Tab3Page implements OnInit {
 
+  watch: Observable<Geoposition>;
+  location: GeoJson = new GeoJson('Point', [0, 0]);
+
   map: mapboxgl.Map;
   style = 'mapbox://styles/mapbox/streets-v11';
   zoom = 12;
   loadingMap = true;
-  location: GeoJson = new GeoJson([0, 0]);
 
-  isViewLocked = true;
+  isViewLocked = false;
+  isRecording = false;
 
-  refreshRate = 1000;
-  refreshInterval = null;
-  isRefreshing = false;
+  path = new GeoJson('LineString', []);
 
   constructor(private geolocation: Geolocation) {
     this.geolocation = geolocation;
@@ -30,11 +33,16 @@ export class Tab3Page implements OnInit {
   }
 
   ngOnInit() {
+    this.watch = this.geolocation.watchPosition({
+      enableHighAccuracy: true
+    })
     this.initMap();
   }
 
   initMap() {
-    this.geolocation.getCurrentPosition().then((resp) => {
+    this.geolocation.getCurrentPosition({
+        enableHighAccuracy: true
+    }).then((resp) => {
       const coords = [resp.coords.longitude, resp.coords.latitude];
       this.location.geometry.coordinates = coords;
       this.map = new mapboxgl.Map({
@@ -42,6 +50,17 @@ export class Tab3Page implements OnInit {
         style: this.style,
         center: coords,
         zoom: this.zoom
+      });
+      this.watch.pipe(
+        filter((p) => p.coords !== undefined) //Filter Out Errors
+      ).subscribe((data) => {
+        setTimeout(() => {
+          const coords = [data.coords.longitude, data.coords.latitude];
+          this.updateLocation(coords)
+          if (this.isRecording) {
+            this.updatePath(coords)
+          }
+        }, 0);
       });
       this.buildMap();
     }).catch((error) => {
@@ -144,50 +163,83 @@ export class Tab3Page implements OnInit {
     });
   }
 
-  updateLocation() {
-    this.geolocation.getCurrentPosition().then((resp) => {
-      const coords = [resp.coords.longitude, resp.coords.latitude];
-      this.location.geometry.coordinates = coords;
-      this.map.getSource('location').setData(new FeatureCollection([this.location]));
-      if (this.isViewLocked) {
-        this.jumpTo(this.location);
+  updateLocation(coords) {
+    this.location.geometry.coordinates = coords;
+    this.map.getSource('location').setData(new FeatureCollection([this.location]));
+    if (this.isViewLocked) {
+      this.jumpTo(this.location);
+    }
+    console.log('Location updated:', coords);
+  }
+
+  startRecording() {
+    console.log('recording started!');
+    this.isRecording = true;
+    this.path.geometry.coordinates.push(this.location.geometry.coordinates);
+
+    this.map.addSource('path', {
+      type: 'geojson',
+      data: new FeatureCollection([this.path])
+    });
+
+    this.map.addLayer({
+      "id": "path",
+      "source": "path",
+      "type": "line",
+      "layout": {
+        "line-join": "round",
+        "line-cap": "round"
+      },
+      "paint": {
+        "line-color": "#888",
+        "line-width": 8
       }
-      console.log(coords);
-    }).catch((error) => {
-      console.log('Error getting location', error);
     });
   }
 
+  updatePath(coords) {
+    this.path.geometry.coordinates.push(coords);
+    this.map.getSource('path').setData(new FeatureCollection([this.path]));
+    console.log('path updated!');
+  }
+
+  stopRecording() {
+    console.log('recording ended!');
+    this.map.removeLayer('path');
+    this.map.removeSource('path');
+    this.isRecording = false;
+    console.log('Recorded path:', this.path);
+  }
+
+  // Button Methods
+
   toggleCenterMap() {
-    if (this.map.getCenter().toArray() !== this.location.geometry.coordinates) {
+    if (!this.isViewLocked) {
       this.easeTo(this.location);
-    } else { }
-    this.isViewLocked = !this.isViewLocked;
-    console.log('Map locked: ', this.isViewLocked);
-  }
-
-  toggleRefresh() {
-    if (this.isRefreshing) {
-      this.stopRefresh();
-    } else {
-      this.startRefresh();
+      this.map.once('moveend', (event) => {
+        console.log('map locked!');
+        this.isViewLocked = true
+      });
+    } else { 
+      console.log('map unlocked!');
+      this.isViewLocked = false;
     }
-    this.isRefreshing = !this.isRefreshing;
   }
 
-  startRefresh() {
-    this.refreshInterval = setInterval(() => {
-        this.updateLocation();
-    }, this.refreshRate);
-    this.isViewLocked = true;
-    this.easeTo(this.location);
+  toggleRecord() {
+    if (!this.isRecording) {
+      this.startRecording();
+      this.easeTo(this.location);
+      this.map.once('moveend', (event) => {
+        console.log('map locked!');
+        this.isViewLocked = true
+      });
+    } else {
+      this.stopRecording();
+    }
   }
 
-  stopRefresh() {
-    clearInterval(this.refreshInterval);
-  }
-
-  // Helpers
+  // Map Methods
 
   easeTo(data: GeoJson) {
     this.map.easeTo({
@@ -207,4 +259,3 @@ export class Tab3Page implements OnInit {
     });
   }
 }
-

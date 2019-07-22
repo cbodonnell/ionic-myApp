@@ -6,6 +6,7 @@ import { GeoJson, FeatureCollection } from '../models/map';
 import { Observable } from 'rxjs';
 import { filter } from 'rxjs/operators';
 import { Time } from '@angular/common';
+import { until } from 'protractor';
 
 @Component({
   selector: 'app-tab3',
@@ -27,6 +28,7 @@ export class Tab3Page implements OnInit {
   isRecording = false;
 
   path = new GeoJson('LineString', []);
+  distance: number;
   startTime: number;
   elapsedTime: number;
 
@@ -180,6 +182,7 @@ export class Tab3Page implements OnInit {
     this.isRecording = true;
     this.startTime = new Date().getTime();
     this.path.geometry.coordinates = [this.location.geometry.coordinates];
+    this.distance = 0.;
 
     this.map.addSource('path', {
       type: 'geojson',
@@ -202,8 +205,9 @@ export class Tab3Page implements OnInit {
   }
 
   updatePath(coords: number[]) {
-    this.elapsedTime = new Date().getTime() - this.startTime;
+    this.elapsedTime = (new Date().getTime() - this.startTime) / 1000; // in seconds
     this.path.geometry.coordinates.push(coords);
+    this.distance += getDistance(this.path[-2], this.path[-1]);
     this.map.getSource('path').setData(new FeatureCollection([this.path]));
     console.log('path updated!');
   }
@@ -214,7 +218,10 @@ export class Tab3Page implements OnInit {
     console.log('recording ended!');
     this.isRecording = false;
     console.log('Recorded path:', this.path);
+    console.log('Recorded distance:', this.distance);
     console.log('Elapsed time:', this.elapsedTime);
+    const pace = this.distance / this.elapsedTime;
+    console.log('Pace:', pace);
   }
 
   // Button Methods
@@ -264,4 +271,17 @@ export class Tab3Page implements OnInit {
       center: data.geometry.coordinates
     });
   }
+}
+
+// Math Methods
+
+function getDistance(startCoords: number[], endCoords: number[]) {
+  const p = 0.017453292519943295;    // Math.PI / 180
+  const c = Math.cos;
+  const a = 0.5 - c((endCoords[1] - startCoords[1]) * p) / 2 +
+          c(startCoords[1] * p) * c(endCoords[1] * p) *
+          (1 - c((endCoords[0] - startCoords[0]) * p)) / 2;
+
+  const distance = 12742 * Math.asin(Math.sqrt(a));
+  return distance * 0.621371; // convert to miles
 }

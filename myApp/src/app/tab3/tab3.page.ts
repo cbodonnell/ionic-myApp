@@ -56,6 +56,7 @@ export class Tab3Page implements OnInit {
         center: startCoords,
         zoom: this.zoom
       });
+      // TODO: Move to initWatch() and run on map load
       this.watch.pipe(
         filter((p) => p.coords !== undefined)
       ).subscribe((data) => {
@@ -207,7 +208,7 @@ export class Tab3Page implements OnInit {
   updatePath(coords: number[]) {
     this.elapsedTime = (new Date().getTime() - this.startTime) / 1000; // in seconds
     this.path.geometry.coordinates.push(coords);
-    this.distance += getDistance(this.path[-2], this.path[-1]);
+    this.distance += getDistance(this.path.geometry.coordinates[-2], this.path.geometry.coordinates[-1]);
     this.map.getSource('path').setData(new FeatureCollection([this.path]));
     console.log('path updated!');
   }

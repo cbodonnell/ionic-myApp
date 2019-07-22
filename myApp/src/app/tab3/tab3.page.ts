@@ -5,6 +5,7 @@ import { Geolocation, Geoposition } from '@ionic-native/geolocation/ngx';
 import { GeoJson, FeatureCollection } from '../models/map';
 import { Observable } from 'rxjs';
 import { filter } from 'rxjs/operators';
+import { Time } from '@angular/common';
 
 @Component({
   selector: 'app-tab3',
@@ -26,6 +27,8 @@ export class Tab3Page implements OnInit {
   isRecording = false;
 
   path = new GeoJson('LineString', []);
+  startTime: number;
+  elapsedTime: number;
 
   constructor(private geolocation: Geolocation) {
     this.geolocation = geolocation;
@@ -35,7 +38,7 @@ export class Tab3Page implements OnInit {
   ngOnInit() {
     this.watch = this.geolocation.watchPosition({
       enableHighAccuracy: true
-    })
+    });
     this.initMap();
   }
 
@@ -43,22 +46,22 @@ export class Tab3Page implements OnInit {
     this.geolocation.getCurrentPosition({
         enableHighAccuracy: true
     }).then((resp) => {
-      const coords = [resp.coords.longitude, resp.coords.latitude];
-      this.location.geometry.coordinates = coords;
+      const startCoords = [resp.coords.longitude, resp.coords.latitude];
+      this.location.geometry.coordinates = startCoords;
       this.map = new mapboxgl.Map({
         container: 'map',
         style: this.style,
-        center: coords,
+        center: startCoords,
         zoom: this.zoom
       });
       this.watch.pipe(
-        filter((p) => p.coords !== undefined) //Filter Out Errors
+        filter((p) => p.coords !== undefined)
       ).subscribe((data) => {
         setTimeout(() => {
-          const coords = [data.coords.longitude, data.coords.latitude];
-          this.updateLocation(coords)
+          const newCoords = [data.coords.longitude, data.coords.latitude];
+          this.updateLocation(newCoords);
           if (this.isRecording) {
-            this.updatePath(coords)
+            this.updatePath(newCoords);
           }
         }, 0);
       });
@@ -163,7 +166,7 @@ export class Tab3Page implements OnInit {
     });
   }
 
-  updateLocation(coords) {
+  updateLocation(coords: number[]) {
     this.location.geometry.coordinates = coords;
     this.map.getSource('location').setData(new FeatureCollection([this.location]));
     if (this.isViewLocked) {
@@ -175,7 +178,8 @@ export class Tab3Page implements OnInit {
   startRecording() {
     console.log('recording started!');
     this.isRecording = true;
-    this.path.geometry.coordinates.push(this.location.geometry.coordinates);
+    this.startTime = new Date().getTime();
+    this.path.geometry.coordinates = [this.location.geometry.coordinates];
 
     this.map.addSource('path', {
       type: 'geojson',
@@ -183,32 +187,34 @@ export class Tab3Page implements OnInit {
     });
 
     this.map.addLayer({
-      "id": "path",
-      "source": "path",
-      "type": "line",
-      "layout": {
-        "line-join": "round",
-        "line-cap": "round"
+      id: 'path',
+      source: 'path',
+      type: 'line',
+      layout: {
+        'line-join': 'round',
+        'line-cap': 'round'
       },
-      "paint": {
-        "line-color": "#888",
-        "line-width": 8
+      paint: {
+        'line-color': '#888',
+        'line-width': 8
       }
     });
   }
 
-  updatePath(coords) {
+  updatePath(coords: number[]) {
+    this.elapsedTime = new Date().getTime() - this.startTime;
     this.path.geometry.coordinates.push(coords);
     this.map.getSource('path').setData(new FeatureCollection([this.path]));
     console.log('path updated!');
   }
 
   stopRecording() {
-    console.log('recording ended!');
     this.map.removeLayer('path');
     this.map.removeSource('path');
+    console.log('recording ended!');
     this.isRecording = false;
     console.log('Recorded path:', this.path);
+    console.log('Elapsed time:', this.elapsedTime);
   }
 
   // Button Methods
@@ -218,9 +224,9 @@ export class Tab3Page implements OnInit {
       this.easeTo(this.location);
       this.map.once('moveend', (event) => {
         console.log('map locked!');
-        this.isViewLocked = true
+        this.isViewLocked = true;
       });
-    } else { 
+    } else {
       console.log('map unlocked!');
       this.isViewLocked = false;
     }
@@ -232,7 +238,7 @@ export class Tab3Page implements OnInit {
       this.easeTo(this.location);
       this.map.once('moveend', (event) => {
         console.log('map locked!');
-        this.isViewLocked = true
+        this.isViewLocked = true;
       });
     } else {
       this.stopRecording();

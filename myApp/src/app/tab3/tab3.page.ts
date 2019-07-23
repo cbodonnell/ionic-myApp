@@ -26,7 +26,6 @@ export class Tab3Page implements OnInit {
 
   isViewLocked = false;
   isRecording = false;
-  isShowingResults = false;
 
   path = new GeoJson('LineString', []);
   distance: number;
@@ -188,8 +187,9 @@ export class Tab3Page implements OnInit {
     console.log('recording started!');
     this.isRecording = true;
     this.startTime = new Date().getTime();
-    // this.path.geometry.coordinates = [this.location.geometry.coordinates];
-    this.path.geometry.coordinates = [[-73.914, 40.699]];
+    this.path.geometry.coordinates = [this.location.geometry.coordinates];
+    // For testing on desktop
+    // this.path.geometry.coordinates = [[-73.914, 40.699]];
     this.distance = 0.;
 
     this.map.addSource('path', {
@@ -229,7 +229,6 @@ export class Tab3Page implements OnInit {
     console.log('recording ended!');
     this.isRecording = false;
     this.pace = (this.elapsedTime / 60) / this.distance;
-    this.isShowingResults = true;
     this.showFinishedModal();
   }
 

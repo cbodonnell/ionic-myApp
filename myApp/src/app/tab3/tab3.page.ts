@@ -5,7 +5,8 @@ import { Geolocation, Geoposition } from '@ionic-native/geolocation/ngx';
 import { GeoJson, FeatureCollection } from '../models/map';
 import { Observable } from 'rxjs';
 import { filter } from 'rxjs/operators';
-import { until } from 'protractor';
+import { ModalController } from '@ionic/angular';
+import { FinishedPopoverComponent } from '../popovers/finished-popover/finished-popover.component';
 
 @Component({
   selector: 'app-tab3',
@@ -20,19 +21,22 @@ export class Tab3Page implements OnInit {
 
   map: mapboxgl.Map;
   style = 'mapbox://styles/mapbox/streets-v11';
-  zoom = 12;
+  zoom = 14;
   loadingMap = true;
 
   isViewLocked = false;
   isRecording = false;
+  isShowingResults = false;
 
   path = new GeoJson('LineString', []);
   distance: number;
   startTime: number;
   elapsedTime: number;
+  pace: number;
 
-  constructor(private geolocation: Geolocation) {
+  constructor(private geolocation: Geolocation, private modalController: ModalController) {
     this.geolocation = geolocation;
+    this.modalController = modalController;
     mapboxgl.accessToken = environment.mapbox.accessToken;
   }
 
@@ -41,6 +45,20 @@ export class Tab3Page implements OnInit {
       enableHighAccuracy: true
     });
     this.initMap();
+  }
+
+  initWatch() {
+    this.watch.pipe(
+      filter((p) => p.coords !== undefined)
+    ).subscribe((data) => {
+      setTimeout(() => {
+        const newCoords = [data.coords.longitude, data.coords.latitude];
+        this.updateLocation(newCoords);
+        if (this.isRecording) {
+          this.updatePath(newCoords);
+        }
+      }, 0);
+    });
   }
 
   initMap() {
@@ -55,18 +73,7 @@ export class Tab3Page implements OnInit {
         center: startCoords,
         zoom: this.zoom
       });
-      // TODO: Move to initWatch() and run on map load
-      this.watch.pipe(
-        filter((p) => p.coords !== undefined)
-      ).subscribe((data) => {
-        setTimeout(() => {
-          const newCoords = [data.coords.longitude, data.coords.latitude];
-          this.updateLocation(newCoords);
-          if (this.isRecording) {
-            this.updatePath(newCoords);
-          }
-        }, 0);
-      });
+      this.initWatch();
       this.buildMap();
     }).catch((error) => {
       console.log('Error getting location', error);
@@ -181,7 +188,8 @@ export class Tab3Page implements OnInit {
     console.log('recording started!');
     this.isRecording = true;
     this.startTime = new Date().getTime();
-    this.path.geometry.coordinates = [this.location.geometry.coordinates];
+    // this.path.geometry.coordinates = [this.location.geometry.coordinates];
+    this.path.geometry.coordinates = [[-73.914, 40.699]];
     this.distance = 0.;
 
     this.map.addSource('path', {
@@ -205,9 +213,11 @@ export class Tab3Page implements OnInit {
   }
 
   updatePath(coords: number[]) {
-    this.elapsedTime = (new Date().getTime() - this.startTime) / 1000; // in seconds
     this.path.geometry.coordinates.push(coords);
-    this.distance += getDistance(this.path.geometry.coordinates[-2], this.path.geometry.coordinates[-1]);
+    this.distance += this.getDistance(
+      this.path.geometry.coordinates[this.path.geometry.coordinates.length - 2],
+      this.path.geometry.coordinates[this.path.geometry.coordinates.length - 1]
+    );
     this.map.getSource('path').setData(new FeatureCollection([this.path]));
     console.log('path updated!');
   }
@@ -215,13 +225,12 @@ export class Tab3Page implements OnInit {
   stopRecording() {
     this.map.removeLayer('path');
     this.map.removeSource('path');
+    this.elapsedTime = (new Date().getTime() - this.startTime) / 1000; // in seconds
     console.log('recording ended!');
     this.isRecording = false;
-    console.log('Recorded path:', this.path);
-    console.log('Recorded distance:', this.distance);
-    console.log('Elapsed time:', this.elapsedTime);
-    const pace = this.distance / this.elapsedTime;
-    console.log('Pace:', pace);
+    this.pace = (this.elapsedTime / 60) / this.distance;
+    this.isShowingResults = true;
+    this.showFinishedModal();
   }
 
   // Button Methods
@@ -271,17 +280,32 @@ export class Tab3Page implements OnInit {
       center: data.geometry.coordinates
     });
   }
+
+  // Math Methods
+
+  getDistance(startCoords: number[], endCoords: number[]) {
+    const p = 0.017453292519943295;    // Math.PI / 180
+    const c = Math.cos;
+    const a = 0.5 - c((endCoords[1] - startCoords[1]) * p) / 2 +
+            c(startCoords[1] * p) * c(endCoords[1] * p) *
+            (1 - c((endCoords[0] - startCoords[0]) * p)) / 2;
+
+    const distance = 12742 * Math.asin(Math.sqrt(a));
+    return distance * 0.621371; // convert to miles
+  }
+
+  // UI Methods
+
+  async showFinishedModal() {
+    const modal = await this.modalController.create({
+      component: FinishedPopoverComponent,
+      componentProps: {
+        time: this.elapsedTime,
+        distance: this.distance,
+        pace: this.pace
+      }
+    });
+    return await modal.present();
+  }
 }
 
-// Math Methods
-
-function getDistance(startCoords: number[], endCoords: number[]) {
-  const p = 0.017453292519943295;    // Math.PI / 180
-  const c = Math.cos;
-  const a = 0.5 - c((endCoords[1] - startCoords[1]) * p) / 2 +
-          c(startCoords[1] * p) * c(endCoords[1] * p) *
-          (1 - c((endCoords[0] - startCoords[0]) * p)) / 2;
-
-  const distance = 12742 * Math.asin(Math.sqrt(a));
-  return distance * 0.621371; // convert to miles
-}

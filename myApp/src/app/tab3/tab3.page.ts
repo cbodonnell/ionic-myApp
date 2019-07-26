@@ -1,12 +1,19 @@
 import { Component, OnInit } from '@angular/core';
 import * as mapboxgl from 'mapbox-gl';
 import { environment } from '../../environments/environment';
-import { Geolocation, Geoposition } from '@ionic-native/geolocation/ngx';
+// import { Geolocation, Geoposition } from '@ionic-native/geolocation/ngx';
 import { GeoJson, FeatureCollection } from '../models/map';
-import { Observable } from 'rxjs';
+// import { Observable } from 'rxjs';
 import { filter } from 'rxjs/operators';
 import { ModalController } from '@ionic/angular';
 import { FinishedPopoverComponent } from '../popovers/finished-popover/finished-popover.component';
+import { Plugins } from '@capacitor/core';
+
+const { Geolocation } = Plugins;
+
+const { App, BackgroundTask } = Plugins;
+
+
 
 @Component({
   selector: 'app-tab3',
@@ -16,8 +23,10 @@ import { FinishedPopoverComponent } from '../popovers/finished-popover/finished-
 
 export class Tab3Page implements OnInit {
 
-  watch: Observable<Geoposition>;
+  // watch: Observable<Geoposition>;
   location: GeoJson = new GeoJson('Point', [0, 0]);
+  isLocated = false;
+  wait: string;
 
   map: mapboxgl.Map;
   style = 'mapbox://styles/mapbox/streets-v11';
@@ -33,37 +42,76 @@ export class Tab3Page implements OnInit {
   elapsedTime: number;
   pace: number;
 
-  constructor(private geolocation: Geolocation, private modalController: ModalController) {
-    this.geolocation = geolocation;
+  constructor(private modalController: ModalController) {
     this.modalController = modalController;
     mapboxgl.accessToken = environment.mapbox.accessToken;
   }
 
   ngOnInit() {
-    this.watch = this.geolocation.watchPosition({
-      enableHighAccuracy: true
+    this.watchPosition();
+    App.addListener('appStateChange', (state) => {
+
+      if (!state.isActive) {
+        // The app has become inactive. We should check if we have some work left to do, and, if so,
+        // execute a background task that will allow us to finish that work before the OS
+        // suspends or terminates our app:
+
+        const taskId = BackgroundTask.beforeExit(async () => {
+          // In this function We might finish an upload, let a network request
+          // finish, persist some data, or perform some other task
+
+
+          this.watchPosition();
+          // Must call in order to end our task otherwise
+          // we risk our app being terminated, and possibly
+          // being labeled as impacting battery life
+          BackgroundTask.finish({
+            taskId
+          });
+        });
+      }
     });
+    // this.initWatch();
     this.initMap();
   }
 
-  initWatch() {
-    this.watch.pipe(
-      filter((p) => p.coords !== undefined)
-    ).subscribe((data) => {
-      setTimeout(() => {
-        const newCoords = [data.coords.longitude, data.coords.latitude];
-        this.updateLocation(newCoords);
+  // initWatch() {
+  //   this.watch.pipe(
+  //     filter((p) => p.coords !== undefined)
+  //   ).subscribe((data) => {
+  //     setTimeout(() => {
+  //       const newCoords = [data.coords.longitude, data.coords.latitude];
+  //       this.updateLocation(newCoords);
+  //       if (this.isRecording) {
+  //         this.updatePath(newCoords);
+  //       }
+  //     }, 0);
+  //   });
+  // }
+
+  watchPosition() {
+    this.wait = Geolocation.watchPosition({
+      enableHighAccuracy: true
+    }, (position, err) => {
+      const coords = [position.coords.longitude, position.coords.latitude];
+      if (this.isLocated) {
+        this.updateLocation(coords);
         if (this.isRecording) {
-          this.updatePath(newCoords);
+          this.updatePath(coords);
         }
-      }, 0);
+      }
     });
   }
 
+  async getCurrentPosition() {
+    const coordinates = await Geolocation.getCurrentPosition({
+      enableHighAccuracy: true
+    });
+    return coordinates;
+  }
+
   initMap() {
-    this.geolocation.getCurrentPosition({
-        enableHighAccuracy: true
-    }).then((resp) => {
+    this.getCurrentPosition().then((resp) => {
       const startCoords = [resp.coords.longitude, resp.coords.latitude];
       this.location.geometry.coordinates = startCoords;
       this.map = new mapboxgl.Map({
@@ -72,11 +120,27 @@ export class Tab3Page implements OnInit {
         center: startCoords,
         zoom: this.zoom
       });
-      this.initWatch();
+      this.watchPosition();
       this.buildMap();
     }).catch((error) => {
       console.log('Error getting location', error);
     });
+    // this.geolocation.getCurrentPosition({
+    //     enableHighAccuracy: true
+    // }).then((resp) => {
+    //   const startCoords = this.getCurrentPosition()
+    //   this.location.geometry.coordinates = startCoords;
+    //   this.map = new mapboxgl.Map({
+    //     container: 'map',
+    //     style: this.style,
+    //     center: startCoords,
+    //     zoom: this.zoom
+    //   });
+    //   this.initWatch();
+    //   this.buildMap();
+    // }).catch((error) => {
+    //   console.log('Error getting location', error);
+    // });
   }
 
   buildMap() {
@@ -89,6 +153,7 @@ export class Tab3Page implements OnInit {
       console.log('map loaded!');
       this.loadingMap = false;
       this.addLocation();
+      this.isLocated = true;
     });
 
     // Unlock view when...

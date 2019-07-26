@@ -1,0 +1,7 @@
+{
+  "appId": "od_engineering.ranalydicts.com",
+  "appName": "Ranalydicts",
+  "bundledWebRuntime": false,
+  "npmClient": "npm",
+  "webDir": "www"
+}
